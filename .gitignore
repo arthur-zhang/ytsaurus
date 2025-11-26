@@ -28,3 +28,5 @@ compile_commands.json
 *.kdev4
 
 test-results
+.claude
+CLAUDE.md
