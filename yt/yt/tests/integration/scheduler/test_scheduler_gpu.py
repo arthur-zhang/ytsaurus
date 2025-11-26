@@ -3,11 +3,13 @@ import time
 
 from yt_env_setup import (
     YTEnvSetup,
+    Restarter,
+    NODES_SERVICE,
 )
 
 from yt_commands import (
     authors, create, wait, write_table, ls, get, set, create_data_center, create_rack, run_sleeping_vanilla, update_pool_tree_config,
-    update_pool_tree_config_option, create_pool_tree, exists, map
+    update_pool_tree_config_option, create_pool_tree, exists, map, update_scheduler_config,
 )
 
 from yt_scheduler_helpers import (
@@ -113,19 +115,21 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         assert assignment["allocation_group_name"] == group_name
         assert assignment["resource_usage"]["gpu"] == gpu_usage
 
-    def _check_operation(self, operation, operation_id, is_gang, group_name, allocation_count, min_needed_gpu_per_allocation, assigned_gpu_usage, assignments_count, enabled=None):
-        assert operation["id"] == operation_id
+    def _check_operation(self, operation, is_gang, group_name, allocation_count, min_needed_gpu_per_allocation, assigned_gpu_usage, assignment_count, enabled=None):
         assert operation["gang"] == is_gang
         assert group_name in operation["initial_grouped_needed_resources"]
         assert operation["initial_grouped_needed_resources"][group_name]["allocation_count"] == allocation_count
         assert operation["initial_grouped_needed_resources"][group_name]["min_needed_resources"]["gpu"] == min_needed_gpu_per_allocation
         assert operation["assigned_resource_usage"]["gpu"] == assigned_gpu_usage
-        assert len(operation["assignments"]) == assignments_count
+        assert len(operation["assignments"]) == assignment_count
         if enabled is not None:
             assert operation["enabled"] == enabled
 
-    def _wait_for_operations_in_orchid(self, operations_count, tree="gpu"):
-        wait(lambda: len(get(scheduler_new_orchid_pool_tree_path(tree) + "/gpu_assignment_plan/operations")) == operations_count)
+    def _wait_for_operations_in_orchid(self, operation_count, tree="gpu"):
+        wait(lambda: len(get(scheduler_new_orchid_pool_tree_path(tree) + "/gpu_assignment_plan/operations")) == operation_count)
+
+    def _wait_for_assignments_in_orchid(self, operation, assignment_count, tree="gpu"):
+        wait(lambda: len(get(scheduler_new_orchid_pool_tree_path(tree) + f"/gpu_assignment_plan/operations/{operation.id}/assignments")) >= assignment_count)
 
     @authors("eshcherbin")
     def test_simple(self):
@@ -137,18 +141,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
 
         wait(lambda: exists(scheduler_new_orchid_pool_tree_path("gpu") + "/gpu_assignment_plan"))
 
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=1)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="task",
             allocation_count=1,
             min_needed_gpu_per_allocation=1,
             assigned_gpu_usage=1,
-            assignments_count=1,
+            assignment_count=1,
             enabled=True,
         )
         assignment = operation["assignments"][0]
@@ -172,18 +176,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
 
         wait(lambda: len(op.get_running_jobs()) == 1)
 
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=1)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="task",
             allocation_count=1,
             min_needed_gpu_per_allocation=8,
             assigned_gpu_usage=8,
-            assignments_count=1,
+            assignment_count=1,
             enabled=True,
         )
 
@@ -204,18 +208,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
 
         wait(lambda: len(op.get_running_jobs()) == 2)
 
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=2)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="task",
             allocation_count=2,
             min_needed_gpu_per_allocation=1,
             assigned_gpu_usage=2,
-            assignments_count=2,
+            assignment_count=2,
             enabled=True,
         )
 
@@ -237,18 +241,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
 
         wait(lambda: len(op.get_running_jobs()) == 2)
 
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=2)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="task",
             allocation_count=2,
             min_needed_gpu_per_allocation=8,
             assigned_gpu_usage=16,
-            assignments_count=2,
+            assignment_count=2,
             enabled=True,
         )
 
@@ -275,19 +279,20 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         wait(lambda: len(op1.get_running_jobs()) == 1)
         wait(lambda: len(op2.get_running_jobs()) == 1)
 
-        self._wait_for_operations_in_orchid(operations_count=2)
+        self._wait_for_operations_in_orchid(operation_count=2)
+        self._wait_for_assignments_in_orchid(op1, assignment_count=1)
+        self._wait_for_assignments_in_orchid(op2, assignment_count=1)
 
         for op in [op1, op2]:
             operation = self._get_operation_from_orchid(op)
             self._check_operation(
                 operation=operation,
-                operation_id=op.id,
                 is_gang=False,
                 group_name="task",
                 allocation_count=1,
                 min_needed_gpu_per_allocation=1,
                 assigned_gpu_usage=1,
-                assignments_count=1,
+                assignment_count=1,
                 enabled=True,
             )
 
@@ -324,18 +329,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
 
         wait(lambda: exists(scheduler_new_orchid_pool_tree_path("cpu") + "/gpu_assignment_plan"))
 
-        self._wait_for_operations_in_orchid(operations_count=1, tree="cpu")
+        self._wait_for_operations_in_orchid(operation_count=1, tree="cpu")
+        self._wait_for_assignments_in_orchid(op, tree="cpu", assignment_count=1)
 
         operation = self._get_operation_from_orchid(op, tree="cpu")
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="task",
             allocation_count=1,
             min_needed_gpu_per_allocation=0,
             assigned_gpu_usage=0,
-            assignments_count=1,
+            assignment_count=1,
             enabled=True,
         )
         assignment = operation["assignments"][0]
@@ -365,19 +370,20 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         wait(lambda: len(op1.get_running_jobs()) == 1)
         wait(lambda: len(op2.get_running_jobs()) == 1)
 
-        self._wait_for_operations_in_orchid(operations_count=2)
+        self._wait_for_operations_in_orchid(operation_count=2)
+        self._wait_for_assignments_in_orchid(op1, assignment_count=1)
+        self._wait_for_assignments_in_orchid(op2, assignment_count=1)
 
         for op in [op1, op2]:
             operation = self._get_operation_from_orchid(op)
             self._check_operation(
                 operation=operation,
-                operation_id=op.id,
                 is_gang=False,
                 group_name="task",
                 allocation_count=1,
                 min_needed_gpu_per_allocation=8,
                 assigned_gpu_usage=8,
-                assignments_count=1,
+                assignment_count=1,
                 enabled=True,
             )
 
@@ -401,7 +407,9 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         wait(lambda: len(op1.get_running_jobs()) == 1)
         wait(lambda: len(op2.get_running_jobs()) == 1)
 
-        self._wait_for_operations_in_orchid(operations_count=2)
+        self._wait_for_operations_in_orchid(operation_count=2)
+        self._wait_for_assignments_in_orchid(op1, assignment_count=1)
+        self._wait_for_assignments_in_orchid(op2, assignment_count=1)
 
         assignment1 = self._get_operation_assignments_from_orchid(op1)[0]
         assignment2 = self._get_operation_assignments_from_orchid(op2)[0]
@@ -422,18 +430,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
 
         wait(lambda: len(op.get_running_jobs()) == 2)
 
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=2)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=True,
             group_name="task",
             allocation_count=2,
             min_needed_gpu_per_allocation=8,
             assigned_gpu_usage=16,
-            assignments_count=2,
+            assignment_count=2,
             enabled=True,
         )
 
@@ -479,18 +487,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         )
 
         wait(lambda: len(op.get_running_jobs()) == 1)
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=1)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="map",
             allocation_count=1,
             min_needed_gpu_per_allocation=1,
             assigned_gpu_usage=1,
-            assignments_count=1,
+            assignment_count=1,
             enabled=True,
         )
 
@@ -524,18 +532,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         )
 
         wait(lambda: len(op.get_running_jobs()) == 1)
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=1)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="map",
             allocation_count=1,
             min_needed_gpu_per_allocation=8,
             assigned_gpu_usage=8,
-            assignments_count=1,
+            assignment_count=1,
             enabled=True,
         )
 
@@ -565,18 +573,18 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         )
 
         wait(lambda: len(op.get_running_jobs()) == 2)
-        self._wait_for_operations_in_orchid(operations_count=1)
+        self._wait_for_operations_in_orchid(operation_count=1)
+        self._wait_for_assignments_in_orchid(op, assignment_count=2)
 
         operation = self._get_operation_from_orchid(op)
         self._check_operation(
             operation=operation,
-            operation_id=op.id,
             is_gang=False,
             group_name="map",
             allocation_count=2,
             min_needed_gpu_per_allocation=8,
             assigned_gpu_usage=16,
-            assignments_count=2,
+            assignment_count=2,
             enabled=True,
         )
 
@@ -613,7 +621,9 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         wait(lambda: len(op1.get_running_jobs()) == 1)
         wait(lambda: len(op2.get_running_jobs()) == 1)
 
-        self._wait_for_operations_in_orchid(operations_count=2)
+        self._wait_for_operations_in_orchid(operation_count=2)
+        self._wait_for_assignments_in_orchid(op1, assignment_count=1)
+        self._wait_for_assignments_in_orchid(op2, assignment_count=1)
 
         assignment1 = self._get_operation_assignments_from_orchid(op1)[0]
         assignment2 = self._get_operation_assignments_from_orchid(op2)[0]
@@ -622,6 +632,23 @@ class TestDryRunGpuSchedulingPolicy(YTEnvSetup):
         op2_creation_time = datetime.datetime.fromisoformat(assignment2["creation_time"])
 
         assert op2_creation_time <= op1_creation_time
+
+    @authors("eshcherbin")
+    def test_orchid_with_offline_node(self):
+        update_scheduler_config("node_registration_timeout", 1000)
+
+        wait(lambda: len(get(scheduler_new_orchid_pool_tree_path("gpu") + "/gpu_assignment_plan/nodes")) ==
+             TestDryRunGpuSchedulingPolicy.NUM_NODES)
+        with Restarter(self.Env, NODES_SERVICE):
+            wait(lambda: len(get(scheduler_new_orchid_pool_tree_path("gpu") + "/gpu_assignment_plan/nodes")) == 0)
+
+            update_scheduler_config("testing_options/node_heartbeat_processing_delay", {
+                "duration": 3000,
+                "type": "async",
+            })
+
+        wait(lambda: len(get(scheduler_new_orchid_pool_tree_path("gpu") + "/gpu_assignment_plan/nodes")) ==
+             TestDryRunGpuSchedulingPolicy.NUM_NODES)
 
 
 ##################################################################

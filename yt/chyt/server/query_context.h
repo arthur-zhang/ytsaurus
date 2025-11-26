@@ -197,7 +197,8 @@ public:
     TQueryProgressValues GetQueryProgress() const;
 
     void SetReadTaskCallback(DB::ReadTaskCallback readTaskCallback);
-    TCallback<TFuture<TSecondaryQueryReadDescriptors>()> GetOperandReadTaskCallback(int tableIndex) const;
+    void RegisterOperandReadTasks(int operandIndex, std::vector<TSecondaryQueryReadDescriptors>&& initialTasks);
+    TCallback<TFuture<TSecondaryQueryReadDescriptors>()> GetOperandReadTaskCallback(int operandIndex) const;
 
 public:
     //! A guard that automatically adds elapsed time to query statistics in destructor.
@@ -286,6 +287,12 @@ private:
 
     TFuture<std::vector<TErrorOr<TObjectLock>>> DoAcquireSnapshotLocks(
         const std::vector<NYPath::TYPath>& paths);
+
+    void LockAndFetchAttributesSync(std::vector<NYTree::TYPath> pathsToFetch);
+    void LockAndFetchAttributesBestEffort(std::vector<NYTree::TYPath> pathsToFetch);
+    void AddAttributesToSnapshot(
+        std::vector<NYTree::TYPath>&& paths,
+        std::vector<TErrorOr<NYTree::IAttributeDictionaryPtr>>&& attributes);
 
     DECLARE_NEW_FRIEND()
 };

@@ -132,8 +132,8 @@ target_sources(yt-yt-core PRIVATE
   ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/async_looper.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/async_rw_lock.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/async_semaphore.cpp
+  ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/async_stream_helpers.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/async_stream_pipe.cpp
-  ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/async_stream.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/config.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/coroutine.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/concurrency/delayed_executor.cpp
@@ -204,6 +204,7 @@ target_sources(yt-yt-core PRIVATE
   ${PROJECT_SOURCE_DIR}/yt/yt/core/misc/fs.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/misc/hazard_ptr.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/misc/hedging_manager.cpp
+  ${PROJECT_SOURCE_DIR}/yt/yt/core/misc/new_hedging_manager.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/misc/histogram.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/misc/adjusted_exponential_moving_average.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/misc/id_generator.cpp
@@ -294,10 +295,11 @@ target_sources(yt-yt-core PRIVATE
   ${PROJECT_SOURCE_DIR}/yt/yt/core/tracing/allocation_tags.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/tracing/public.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/utilex/random.cpp
+  ${PROJECT_SOURCE_DIR}/yt/yt/core/ypath/helpers.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/ypath/stack.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/ypath/token.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/ypath/tokenizer.cpp
-  ${PROJECT_SOURCE_DIR}/yt/yt/core/ypath/helpers.cpp
+  ${PROJECT_SOURCE_DIR}/yt/yt/core/ypath/trie.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/yson/async_consumer.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/yson/async_writer.cpp
   ${PROJECT_SOURCE_DIR}/yt/yt/core/yson/attribute_consumer.cpp

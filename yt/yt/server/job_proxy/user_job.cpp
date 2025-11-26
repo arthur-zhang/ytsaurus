@@ -718,8 +718,7 @@ private:
         return UserJobEnvironment_->SpawnUserProcess(
             ExecProgramName,
             {"--config", Host_->AdjustPath(GetExecutorConfigPath())},
-            CombinePaths(Host_->GetSlotPath(), GetSandboxRelPath(ESandboxKind::User)),
-            UserId_);
+            CombinePaths(Host_->GetSlotPath(), GetSandboxRelPath(ESandboxKind::User)));
     }
 
     void InitShellManager()
@@ -1417,6 +1416,8 @@ private:
         if (UserJobSpec_.enable_rpc_proxy_in_job_proxy()) {
             SetEnvironmentVariable("YT_JOB_PROXY_SOCKET_PATH", ToString(Host_->GetJobProxyUnixDomainSocketPath()));
         }
+
+        SetEnvironmentVariable("YT_JOB_PROXY_GRPC_SOCKET_PATH", ToString(Host_->GetJobProxyGrpcUnixDomainSocketPath()));
 
         for (const auto& pair : UserJobSpec_.environment()) {
             SetEnvironmentVariable(formatter.Format(pair));
